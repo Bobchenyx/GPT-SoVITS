@@ -193,3 +193,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+/doubao
+/doubao-export

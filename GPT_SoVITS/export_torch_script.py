@@ -474,6 +474,10 @@ class T2SModel(nn.Module):
         bert = bert.unsqueeze(0)
 
         x = self.ar_text_embedding(all_phoneme_ids)
+
+        # 添加这行：确保 bert 和 bert_proj 权重类型一致
+        bert = bert.to(dtype=self.bert_proj.weight.dtype)
+        
         x = x + self.bert_proj(bert.transpose(1, 2))
         x: torch.Tensor = self.ar_text_position(x)
 
@@ -617,6 +621,9 @@ class ExportSSLModel(torch.nn.Module):
 
 def export_bert(output_path):
     tokenizer = AutoTokenizer.from_pretrained(bert_path)
+
+    # 添加这行：保存tokenizer
+    tokenizer.save_pretrained(os.path.join(output_path, "tokenizer"))
 
     text = "叹息声一声接着一声传出,木兰对着房门织布.听不见织布机织布的声音,只听见木兰在叹息.问木兰在想什么?问木兰在惦记什么?木兰答道,我也没有在想什么,也没有在惦记什么."
     ref_bert_inputs = tokenizer(text, return_tensors="pt")
