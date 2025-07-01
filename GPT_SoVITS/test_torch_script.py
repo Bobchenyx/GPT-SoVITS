@@ -7,6 +7,7 @@ import argparse
 import os
 import sys
 import re
+import time
 
 # 添加GPT-SoVITS路径以便导入模块
 def setup_gpt_sovits_path():
@@ -14,16 +15,16 @@ def setup_gpt_sovits_path():
     current_dir = os.getcwd()
     possible_paths = [
         current_dir,  # 当前目录
-        os.path.join(current_dir, "GPT-SoVITS"),  # 当前目录下的GPT-SoVITS文件夹
+        os.path.join(current_dir, "GPT_SoVITS"),  # 当前目录下的GPT-SoVITS文件夹
         os.path.dirname(current_dir),  # 上级目录
-        os.path.join(os.path.dirname(current_dir), "GPT-SoVITS"),  # 上级目录下的GPT-SoVITS
+        os.path.join(os.path.dirname(current_dir), "GPT_SoVITS"),  # 上级目录下的GPT-SoVITS
     ]
     
     for path in possible_paths:
         if os.path.exists(os.path.join(path, "text")) and os.path.exists(os.path.join(path, "text", "cleaner.py")):
             if path not in sys.path:
                 sys.path.insert(0, path)
-            print(f"Added GPT-SoVITS path: {path}")
+            print(f"Added GPT_SoVITS path: {path}")
             return True
     
     return False
@@ -241,7 +242,9 @@ class GPTSoVITSInference:
         with torch.no_grad():
             # 1. 加载参考音频
             print("Loading reference audio...")
-            ref_audio = torch.tensor([load_audio(ref_audio_path, 16000)]).float().to(self.device)
+            # ref_audio = torch.tensor([load_audio(ref_audio_path, 16000)]).float().to(self.device)
+            ref_audio_np = load_audio(ref_audio_path, 16000)
+            ref_audio = torch.from_numpy(ref_audio_np).float().unsqueeze(0).to(self.device)
             print(f"Reference audio shape: {ref_audio.shape}")
             
             # 2. 使用原版音素处理 + 导出的BERT模型处理参考文本
@@ -252,6 +255,8 @@ class GPTSoVITSInference:
                 self.tokenizer, self.bert_model, self.device, self.is_half
             )
             print(f"Reference - Phones: {len(ref_phones)}, BERT: {ref_bert_features.shape}, Norm text: {ref_norm_text}")
+
+            start = time.time()
             
             # 3. 使用原版音素处理 + 导出的BERT模型处理目标文本
             print("Processing target text with original phoneme processing + exported BERT model...")
@@ -263,8 +268,10 @@ class GPTSoVITSInference:
             print(f"Target - Phones: {len(target_phones)}, BERT: {target_bert_features.shape}, Norm text: {target_norm_text}")
             
             # 4. 准备序列输入
-            ref_seq = torch.LongTensor([ref_phones]).to(self.device)
-            target_seq = torch.LongTensor([target_phones]).to(self.device)
+            # ref_seq = torch.LongTensor([ref_phones]).to(self.device)
+            # target_seq = torch.LongTensor([target_phones]).to(self.device)
+            ref_seq = torch.tensor(ref_phones, dtype=torch.long).unsqueeze(0).to(self.device)
+            target_seq = torch.tensor(target_phones, dtype=torch.long).unsqueeze(0).to(self.device)
             
             # 5. 使用导出的SSL模型提取特征
             print("Extracting SSL features...")
@@ -281,14 +288,14 @@ class GPTSoVITSInference:
             
             # 8. 使用导出的GPT-SoVITS模型进行推理
             print("Running GPT-SoVITS inference...")
-            print("Input tensor information:")
-            print(f"  ssl_content: {ssl_content.shape} {ssl_content.dtype}")
-            print(f"  ref_audio_32k: {ref_audio_32k.shape} {ref_audio_32k.dtype}")
-            print(f"  ref_seq: {ref_seq.shape} {ref_seq.dtype}")
-            print(f"  target_seq: {target_seq.shape} {target_seq.dtype}")
-            print(f"  ref_bert: {ref_bert_features.shape} {ref_bert_features.dtype}")
-            print(f"  target_bert: {target_bert_features.shape} {target_bert_features.dtype}")
-            print(f"  top_k: {top_k_tensor.shape} {top_k_tensor.dtype}")
+            # print("Input tensor information:")
+            # print(f"  ssl_content: {ssl_content.shape} {ssl_content.dtype}")
+            # print(f"  ref_audio_32k: {ref_audio_32k.shape} {ref_audio_32k.dtype}")
+            # print(f"  ref_seq: {ref_seq.shape} {ref_seq.dtype}")
+            # print(f"  target_seq: {target_seq.shape} {target_seq.dtype}")
+            # print(f"  ref_bert: {ref_bert_features.shape} {ref_bert_features.dtype}")
+            # print(f"  target_bert: {target_bert_features.shape} {target_bert_features.dtype}")
+            # print(f"  top_k: {top_k_tensor.shape} {top_k_tensor.dtype}")
             
             generated_audio = self.gpt_sovits_model(
                 ssl_content,
@@ -299,8 +306,11 @@ class GPTSoVITSInference:
                 target_bert_features,
                 top_k_tensor
             )
+
+            end = time.time()
+            print("生成耗时:", end - start, "秒")
             
-            print(f"Generated audio shape: {generated_audio.shape}")
+            # print(f"Generated audio shape: {generated_audio.shape}")
             
             # 9. 保存结果
             audio_numpy = generated_audio.squeeze().cpu().numpy()

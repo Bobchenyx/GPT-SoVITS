@@ -695,7 +695,7 @@ def export(gpt_path, vits_path, ref_audio_path, ref_text, output_path, export_be
 
     # gpt_path = "GPT_weights_v2/xw-e15.ckpt"
     # dict_s1 = torch.load(gpt_path, map_location=device)
-    dict_s1 = torch.load(gpt_path, weights_only=False)
+    dict_s1 = torch.load(gpt_path, map_location=device, weights_only=False)
     raw_t2s = get_raw_t2s_model(dict_s1).to(device)
     print("#### get_raw_t2s_model ####")
     print(raw_t2s.config)

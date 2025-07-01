@@ -197,3 +197,5 @@ cython_debug/
 
 /doubao
 /doubao-export
+/doubao-export-gpu
+/doubao-export-mps
