@@ -1,3 +1,5 @@
+# export PYTHONPATH="${PYTHONPATH}:/Users/bobchenyx/Downloads/moyoyo/GPT-SoVITS:/Users/bobchenyx/Downloads/moyoyo/GPT-SoVITS/tools:/Users/bobchenyx/Downloads/moyoyo/GPT-SoVITS/GPT_SoVITS"
+
 python GPT_SoVITS/export_torch_script.py \
     --gpt_model doubao/txdb-e15.ckpt \
     --sovits_model doubao/txdb_e12_s204.pth \

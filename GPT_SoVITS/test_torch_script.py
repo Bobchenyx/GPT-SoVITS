@@ -7,6 +7,7 @@ import argparse
 import os
 import sys
 import re
+import itertools
 import time
 
 # 添加GPT-SoVITS路径以便导入模块
@@ -51,27 +52,15 @@ def load_audio(audio_path, target_sr=16000):
 def get_bert_feature_with_exported_model(text, word2ph, bert_model, tokenizer, device):
     """使用导出的BERT模型获取特征"""
     with torch.no_grad():
-        inputs = tokenizer(text, return_tensors="pt")
-        for i in inputs:
-            inputs[i] = inputs[i].to(device)
-        
-        # 使用导出的BERT模型
-        bert_inputs = {
-            "input_ids": inputs["input_ids"],
-            "attention_mask": inputs["attention_mask"], 
-            "token_type_ids": inputs["token_type_ids"],
-            "word2ph": torch.tensor(word2ph, dtype=torch.int32).to(device)
-        }
-        
-        # 调用导出的BERT模型
-        phone_level_feature = bert_model(
-            bert_inputs["input_ids"],
-            bert_inputs["attention_mask"],
-            bert_inputs["token_type_ids"],
-            bert_inputs["word2ph"]
+        inputs = tokenizer(text, return_tensors="pt").to(device)
+        word2ph_tensor = torch.tensor(word2ph, dtype=torch.int32, device=device)
+
+        return bert_model(
+            inputs["input_ids"],
+            inputs["attention_mask"],
+            inputs["token_type_ids"],
+            word2ph_tensor
         )
-        
-        return phone_level_feature
 
 def get_bert_inf_with_exported_model(phones, word2ph, norm_text, language, bert_model, tokenizer, device, is_half=False):
     """使用导出的BERT模型获取推理结果"""
@@ -159,16 +148,15 @@ def get_phones_and_bert_with_exported_models(text, language, version, LangSegmen
     bert_list = []
     norm_text_list = []
     
-    for i in range(len(textlist)):
-        lang = langlist[i]
-        phones, word2ph, norm_text = clean_text_inf(textlist[i], lang, version, clean_text_func, cleaned_text_to_sequence_func)
-        bert = get_bert_inf_with_exported_model(phones, word2ph, norm_text, lang, bert_model, tokenizer, device, is_half)
+    for lang, txt in zip(langlist, textlist):
+        phones, word2ph, norm_text = clean_text_inf(txt, lang, version, clean_text_func, cleaned_text_to_sequence_func)
+        bert = get_bert_inf_with_exported_model(phones, word2ph, norm_text, lang, bert_model, tokenizer, device,is_half)
         phones_list.append(phones)
         norm_text_list.append(norm_text)
         bert_list.append(bert)
     
     bert = torch.cat(bert_list, dim=1)
-    phones = sum(phones_list, [])
+    phones = list(itertools.chain.from_iterable(phones_list))
     norm_text = "".join(norm_text_list)
 
     if not final and len(phones) < 6:
@@ -216,6 +204,7 @@ class GPTSoVITSInference:
         
         # 3. 加载导出的tokenizer
         tokenizer_path = os.path.join(model_dir, "tokenizer")
+        # self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, use_fast=False)
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
         print(f"✓ Tokenizer loaded from: {tokenizer_path}")
         
